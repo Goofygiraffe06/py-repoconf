@@ -1,0 +1,3 @@
+"""
+Library core of ``repoconf``.
+"""
