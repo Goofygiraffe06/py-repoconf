@@ -1,7 +1,7 @@
 [project]
 name = "repoconf"
 version = "0.0.0dev1"
-description = "🧠 Centrally configure your decentralised 🐙 git repo."
+description = "🧠 Centrally configure your decentralised 🐙 git repo"
 requires-python = ">=3.12"
 readme = "README.md"
 authors = [
