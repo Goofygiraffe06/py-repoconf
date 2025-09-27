@@ -35,7 +35,7 @@ classifiers = [
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 dependencies = [
-    "logician",
+    "logician==0.0.0dev3",
     "gitbolt"
 ]
 
