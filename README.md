@@ -1,5 +1,15 @@
 # py-repoconf
 
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/repoconf)
+![PyPI - Types](https://img.shields.io/pypi/types/repoconf)
+![GitHub License](https://img.shields.io/github/license/Vaastav-Technologies/py-repoconf)
+[![🔧 test](https://github.com/Vaastav-Technologies/py-repoconf/actions/workflows/test.yml/badge.svg)](https://github.com/Vaastav-Technologies/py-repoconf/actions/workflows/test.yml)
+[![💡 typecheck](https://github.com/Vaastav-Technologies/py-repoconf/actions/workflows/typecheck.yml/badge.svg)](https://github.com/Vaastav-Technologies/py-repoconf/actions/workflows/typecheck.yml)
+[![🛠️ lint](https://github.com/Vaastav-Technologies/py-repoconf/actions/workflows/lint.yml/badge.svg)](https://github.com/Vaastav-Technologies/py-repoconf/actions/workflows/lint.yml)
+[![📊 coverage](https://codecov.io/gh/Vaastav-Technologies/py-repoconf/branch/main/graph/badge.svg)](https://codecov.io/gh/Vaastav-Technologies/py-repoconf)
+[![📤 Upload Python Package](https://github.com/Vaastav-Technologies/py-repoconf/actions/workflows/python-publish.yml/badge.svg)](https://github.com/Vaastav-Technologies/py-repoconf/actions/workflows/python-publish.yml)
+![PyPI - Version](https://img.shields.io/pypi/v/repoconf)
+
 ---
 
 **🧠 Centrally configure your decentralised 🐙 git repo.**
