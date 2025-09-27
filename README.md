@@ -9,6 +9,7 @@ times require certain configurations to be shared and tracked centrally among va
 centrally sharable configurations are:
 
 - 💻 Branch descriptions (or better, branch READMEs).
+- 💡Issues/Features/Tasks related to the repo.
 - 🪼 Certain properties that closely relate to the repo.
 - 📕 Rules related to per-branch collaborations and conventions.
 - 🔒 Encrypted secrets.
