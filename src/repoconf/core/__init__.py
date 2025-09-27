@@ -1,6 +1,7 @@
 """
 Library core of ``repoconf``.
 """
+
 import logging
 
 import repoconf
@@ -13,5 +14,6 @@ rclc_logger = rclc.configure(rclc_log)
 def main():
     rclc_logger.success("repoconf")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
