@@ -54,3 +54,7 @@ issues = "https://github.com/Vaastav-Technologies/py-repoconf/issues"
 
 [tool.setuptools.packages.find]
 where = ['src']
+
+[tool.pytest.ini_options]
+addopts = ["--doctest-modules", # Test all the doctests
+    "--doctest-glob=*.md"] # Test doctests included as examples in the md files.
