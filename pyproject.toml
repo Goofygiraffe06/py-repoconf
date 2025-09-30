@@ -36,7 +36,7 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 dependencies = [
     "logician >= 0.0.0.dev6",
-    "gitbolt",
+    "gitbolt >= 0.0.0.dev10",
     "vt-commons >= 0.0.1.dev4",
     "vt-err-hndlr >= 0.0.0.dev3",
 ]
