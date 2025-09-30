@@ -45,10 +45,10 @@ dependencies = [
 lint = ["ruff"]
 typecheck = ["mypy"]
 dev = [{include-group = "lint"}, {include-group = "typecheck"}]
-doc = ['sphinx', 'sphinx-argparse']
-test = ["pytest", 'gitbolt[test]']
+doc = ["sphinx", "sphinx-argparse"]
+test = ["pytest", "gitbolt[test]"]
 cover = [{include-group = "test"}, "pytest-cov"]
-multitest = ['tox']
+multitest = ["tox"]
 
 [project.urls]
 homepage = "https://github.com/Vaastav-Technologies/py-repoconf"
