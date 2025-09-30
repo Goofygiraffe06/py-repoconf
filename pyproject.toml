@@ -35,8 +35,10 @@ classifiers = [
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 dependencies = [
-    "logician==0.0.0dev3",
-    "gitbolt"
+    "logician >= 0.0.0.dev6",
+    "gitbolt",
+    "vt-commons >= 0.0.1.dev4",
+    "vt-err-hndlr >= 0.0.0.dev3",
 ]
 
 [dependency-groups]
