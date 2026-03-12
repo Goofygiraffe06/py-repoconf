@@ -57,9 +57,10 @@ class VirtualStore:
         # 1. hash-object
         blob_sha = self.provider.run_unchecked(["hash-object", "-w", local_file_path]).strip()
 
-        # Create a temporary index file
+        # Create a temporary index file path
         fd, temp_index_path = tempfile.mkstemp(prefix="repoconf_idx_")
         os.close(fd)
+        os.remove(temp_index_path) # Delete it so Git creates a valid index file
         
         env = {"GIT_INDEX_FILE": temp_index_path}
 

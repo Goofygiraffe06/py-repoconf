@@ -56,15 +56,16 @@ class ConfigEngine:
 
     @property
     def git_dir(self) -> str:
-        """Dynamically resolve the git directory path."""
+        """Dynamically resolve the absolute git directory path."""
         if not hasattr(self, '_git_dir'):
-            self._git_dir = self.provider.run_unchecked(["rev-parse", "--git-dir"]).strip()
+            git_dir = self.provider.run_unchecked(["rev-parse", "--git-dir"]).strip()
+            self._git_dir = os.path.abspath(git_dir)
         return self._git_dir
 
     @property
     def proxy_file(self) -> str:
         """The absolute path to the proxy file inside the git directory."""
-        return os.path.join(self.git_dir, "repoconf.config")
+        return os.path.join(self.git_dir, "repoconf.config").replace("\\", "/")
 
     def _setup_native_resolution(self) -> None:
         """
@@ -73,12 +74,12 @@ class ConfigEngine:
         try:
             # Check if it's already set
             current_includes = self.provider.run_unchecked(["config", "--local", "--get-all", "include.path"]).splitlines()
-            if self.INCLUDE_PATH in current_includes:
+            if self.proxy_file in current_includes:
                 return
         except GitCmdException:
             pass  # Key doesn't exist
             
-        self.provider.run_unchecked(["config", "--local", "--add", "include.path", self.INCLUDE_PATH])
+        self.provider.run_unchecked(["config", "--local", "--add", "include.path", self.proxy_file])
 
     def _ensure_proxy_file(self) -> None:
         """
