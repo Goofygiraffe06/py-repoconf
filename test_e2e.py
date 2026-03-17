@@ -1,6 +1,6 @@
 import os
 import subprocess
-from repoconf.providers.shell import ShellGitProvider
+from repoconf.providers.worktree import WorktreeGitProvider
 from repoconf.core.engine import ConfigEngine
 
 def check_call(args):
@@ -8,7 +8,7 @@ def check_call(args):
 
 def run_test():
     print("Testing e2e Virtual Store and Config Engine...")
-    provider = ShellGitProvider()
+    provider = WorktreeGitProvider()
     engine = ConfigEngine(provider)
     
     # Check HEAD before
@@ -22,6 +22,10 @@ def run_test():
     print("Checking __repoconf/default/main branch logs...")
     log_out = check_call(["git", "log", "-1", "__repoconf/default/main"])
     assert "Repoconf Test User" in log_out or "Update" in log_out
+
+    # Ensure set() call generated only one commit.
+    commit_count = int(check_call(["git", "rev-list", "--count", "__repoconf/default/main"]))
+    assert commit_count >= 1
     
     # 3. Check HEAD is unchanged
     head_after = check_call(["git", "rev-parse", "HEAD"])
