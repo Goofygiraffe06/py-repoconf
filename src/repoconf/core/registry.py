@@ -1,8 +1,6 @@
-"""
-Config schema registry and validation definitions.
-"""
+"""Config schema registry, validators, and command builders."""
 
-from typing import TypedDict, Protocol, Any, Dict
+from typing import Any, Protocol, TypedDict
 
 try:
     from typing import Unpack
@@ -23,6 +21,19 @@ class RepoConfigSchema(TypedDict, total=False):
     core_filemode: str
     core_symlinks: str
     repoconf_version: str
+
+
+class SetCommandSchema(TypedDict):
+    """Schema for a validated set command payload."""
+
+    key: str
+    value: str
+
+
+class GetCommandSchema(TypedDict):
+    """Schema for a validated get command payload."""
+
+    key: str
 
 
 class Validator(Protocol):
@@ -67,6 +78,9 @@ class ConfigArgumentValidator:
         if not self.key.replace('.', '').replace('-', '').replace('_', '').isalnum():
             raise ValueError(f"Invalid characters in configuration key '{self.key}'")
 
+        if self.value is not None and not isinstance(self.value, (str, int, float, bool)):
+            raise ValueError(f"Unsupported value type for key '{self.key}'")
+
 
 class SetCommandValidator:
     """
@@ -92,3 +106,38 @@ class SetCommandValidator:
         for key in self.kwargs:
             if key not in allowed_keys:
                 raise ValueError(f"Key '{key}' is not allowed in schema.")
+
+
+class CommandBuilder:
+    """Builder for validated get/set command payloads."""
+
+    # region Builders
+    @staticmethod
+    def build_set_command(prop: str, value: Any) -> SetCommandSchema:
+        """Build a set command payload after validation.
+
+        Args:
+            prop: Pythonic property name like ``user_name``.
+            value: Value assigned to the property.
+
+        Returns:
+            A validated set command payload.
+        """
+        key = prop.replace("_", ".")
+        ConfigArgumentValidator(key=key, value=value).validate()
+        return {"key": key, "value": str(value)}
+
+    @staticmethod
+    def build_get_command(prop: str) -> GetCommandSchema:
+        """Build a get command payload after validation.
+
+        Args:
+            prop: Pythonic property name like ``user_name``.
+
+        Returns:
+            A validated get command payload.
+        """
+        key = prop.replace("_", ".")
+        ConfigArgumentValidator(key=key).validate()
+        return {"key": key}
+    # endregion

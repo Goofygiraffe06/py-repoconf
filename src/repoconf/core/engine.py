@@ -1,20 +1,14 @@
-"""
-Native Integration and Config Engine.
-"""
+"""Native integration and immutable configuration engine."""
 
-import os
-import sys
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Optional, Any
+from pathlib import Path
+from typing import Unpack
 
-from repoconf.providers.protocol import GitProvider, GitCmdException
-from repoconf.core.store import VirtualStore
-from repoconf.core.registry import SetCommandValidator, RepoConfigSchema
-
-if sys.version_info >= (3, 11):
-    from typing import Unpack
-else:
-    from typing_extensions import Unpack
+from repoconf.core.registry import CommandBuilder, RepoConfigSchema, SetCommandValidator
+from repoconf.providers.protocol import GitCmdException, GitProvider
+from repoconf.providers.worktree import WorktreeGitProvider
 
 
 @dataclass
@@ -36,37 +30,50 @@ class ConfigEngine:
     via Git's native configuration stack and a proxy file.
     """
 
+    # region Constants
     INCLUDE_PATH = "../repoconf.config"
+    CONFIG_BRANCH = "__repoconf/default/main"
+    BACKEND_DIR_NAME = "repoconf_backend"
+    MANAGED_FILE_NAME = "repoconf.config"
+    # endregion
 
-    def __init__(self, provider: GitProvider, store: Optional[VirtualStore] = None):
-        self.provider = provider
-        self.store = store or VirtualStore(provider)
+    # region Lifecycle
+    def __init__(self, provider: GitProvider | None = None):
+        self.provider = provider or WorktreeGitProvider()
 
     def clone(self) -> 'ConfigEngine':
         """
         Implements the Clone Pattern for immutability.
         
-        >>> from repoconf.providers.shell import ShellGitProvider
-        >>> engine1 = ConfigEngine(ShellGitProvider())
+        >>> engine1 = ConfigEngine()
         >>> engine2 = engine1.clone()
         >>> engine1 is not engine2
         True
         """
-        return ConfigEngine(self.provider, self.store.clone())
+        return ConfigEngine(self.provider)
+    # endregion
 
+    # region Paths
     @property
-    def git_dir(self) -> str:
+    def git_dir(self) -> Path:
         """Dynamically resolve the absolute git directory path."""
         if not hasattr(self, '_git_dir'):
             git_dir = self.provider.run_unchecked(["rev-parse", "--git-dir"]).strip()
-            self._git_dir = os.path.abspath(git_dir)
+            self._git_dir = Path(git_dir).resolve()
         return self._git_dir
 
     @property
-    def proxy_file(self) -> str:
+    def proxy_file(self) -> Path:
         """The absolute path to the proxy file inside the git directory."""
-        return os.path.join(self.git_dir, "repoconf.config").replace("\\", "/")
+        return self.git_dir / self.MANAGED_FILE_NAME
 
+    @property
+    def backend_worktree(self) -> Path:
+        """Path for the hidden administrative worktree."""
+        return self.git_dir / self.BACKEND_DIR_NAME
+    # endregion
+
+    # region Internal Setup
     def _setup_native_resolution(self) -> None:
         """
         Idempotently sets up git config --local include.path.
@@ -74,49 +81,39 @@ class ConfigEngine:
         try:
             # Check if it's already set
             current_includes = self.provider.run_unchecked(["config", "--local", "--get-all", "include.path"]).splitlines()
-            if self.proxy_file in current_includes:
+            if self.INCLUDE_PATH in current_includes:
                 return
         except GitCmdException:
             pass  # Key doesn't exist
-            
-        self.provider.run_unchecked(["config", "--local", "--add", "include.path", self.proxy_file])
+
+        self.provider.run_unchecked(["config", "--local", "--add", "include.path", self.INCLUDE_PATH])
 
     def _ensure_proxy_file(self) -> None:
-        """
-        Ensures the local proxy file exists, syncing from the store if it's empty locally
-        but exists remotely.
-        """
-        if os.path.exists(self.proxy_file):
+        """Ensure the stable local proxy file exists under ``.git``."""
+        if self.proxy_file.exists():
             return
 
-        os.makedirs(os.path.dirname(self.proxy_file), exist_ok=True)
+        self.proxy_file.parent.mkdir(parents=True, exist_ok=True)
+        self.proxy_file.write_text("", encoding="utf-8")
 
-        content = self.store.get_file_content("repoconf.config")
-        if content is not None:
-            with open(self.proxy_file, "w") as f:
-                f.write(content)
-        else:
-            with open(self.proxy_file, "w") as f:
-                pass # Create empty file
+    def _ensure_backend(self) -> None:
+        """Ensure the administrative worktree is ready."""
+        self.provider.ensure_worktree(self.CONFIG_BRANCH, self.backend_worktree)
+    # endregion
 
+    # region Commands
     def execute_set(self, cmd: SetSubcommand) -> 'ConfigEngine':
         """
-        Executes a SetSubcommand:
-        1. Ensures proxy and resolution are set up.
-        2. Writes to the local proxy file using standard git config.
-        3. Commits the proxy file to the virtual store.
+        Execute a single set command against the stable proxy.
         """
+        self._ensure_backend()
         self._ensure_proxy_file()
         self._setup_native_resolution()
 
         # Local write via proxy using Git config file manipulation
-        self.provider.run_unchecked(["config", "--file", self.proxy_file, cmd.key, cmd.value])
+        self.provider.run_unchecked(["config", "--file", str(self.proxy_file), cmd.key, cmd.value])
 
-        # Commit proxy file to the store
-        new_store = self.store.commit_file(self.proxy_file, "repoconf.config", f"Update {cmd.key} to {cmd.value}")
-        
-        # Return a new engine with the new store
-        return ConfigEngine(self.provider, new_store)
+        return self.clone()
 
     def set(self, **kwargs: Unpack[RepoConfigSchema]) -> 'ConfigEngine':
         """
@@ -130,16 +127,22 @@ class ConfigEngine:
         validator = SetCommandValidator(**kwargs)
         validator.validate()
 
-        engine = self
+        engine = self.clone()
+        commands: list[SetSubcommand] = []
         for prop, value in kwargs.items():
-            # Convert python kwargs format back to git config format (user_name -> user.name)
-            key = prop.replace('_', '.')
-            cmd = SetSubcommand(key=key, value=str(value)) # Ensure value is string
+            payload = CommandBuilder.build_set_command(prop=prop, value=value)
+            commands.append(SetSubcommand(**payload))
+
+        for cmd in commands:
             engine = engine.execute_set(cmd)
-            
+
+        if commands:
+            keys = ", ".join(cmd.key for cmd in commands)
+            engine.provider.commit_and_push(engine.proxy_file, f"Update repoconf keys: {keys}")
+
         return engine
 
-    def execute_get(self, cmd: GetSubcommand) -> Optional[str]:
+    def execute_get(self, cmd: GetSubcommand) -> str | None:
         """
         Executes a GetSubcommand.
         """
@@ -148,9 +151,10 @@ class ConfigEngine:
         except GitCmdException:
             return None
 
-    def get(self, prop: str) -> Optional[str]:
+    def get(self, prop: str) -> str | None:
         """
         Helper method to get a config value using pythonic property names.
         """
-        key = prop.replace('_', '.')
-        return self.execute_get(GetSubcommand(key=key))
+        payload = CommandBuilder.build_get_command(prop=prop)
+        return self.execute_get(GetSubcommand(**payload))
+    # endregion
