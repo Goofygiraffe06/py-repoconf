@@ -1,8 +1,7 @@
-"""
-GitProvider protocol definition.
-"""
+"""Git provider protocol contracts."""
 
-from typing import Protocol, Dict, Optional, List
+from pathlib import Path
+from typing import Protocol
 
 
 class GitCmdException(Exception):
@@ -13,13 +12,18 @@ class GitCmdException(Exception):
 class GitProvider(Protocol):
     """Protocol defining the interface for Git backend providers."""
 
-    def run_unchecked(self, args: List[str], env: Optional[Dict[str, str]] = None, input: Optional[str] = None) -> str:
+    # region Direct Commands
+    def run_unchecked(
+        self,
+        args: list[str],
+        env: dict[str, str] | None = None,
+        input: str | None = None,
+    ) -> str:
         """
         Executes a Git command directly.
 
         Args:
-            args: The git command arguments (e.g., ['config', '--get', 'user.name']).
-                  The word 'git' should not be included.
+            args: The git command arguments (without the word ``git``).
             env: Optional environment variables to merge with the existing environment.
             input: Optional standard input to pass to the command.
 
@@ -30,55 +34,47 @@ class GitProvider(Protocol):
             GitCmdException: If the command returns a non-zero exit code.
 
         >>> class DummyProvider:
-        ...     def run_unchecked(self, args: List[str], env: Optional[Dict[str, str]] = None, input: Optional[str] = None) -> str:
+        ...     def run_unchecked(self, args: list[str], env: dict[str, str] | None = None, input: str | None = None) -> str:
         ...         return "dummy output\\n"
         >>> p = DummyProvider()
         >>> p.run_unchecked(["version"])
         'dummy output\\n'
         """
         ...
+    # endregion
 
-    def read_blob(self, branch: str, path: str) -> Optional[str]:
+    # region Worktree Lifecycle
+    def ensure_worktree(self, branch: str, path: Path) -> None:
         """
-        Reads the content of a blob at a specific path on a branch.
-        Uses `ls-tree` and `cat-file` to get content.
+        Idempotently ensures a detached administrative worktree exists.
 
         Args:
-            branch: The branch name (e.g., '__repoconf/default/main').
-            path: The file path within the branch.
-
-        Returns:
-            str: The content of the file, or None if the path/branch does not exist.
+            branch: The configuration branch to manage.
+            path: The administrative worktree path.
 
         Raises:
-            GitCmdException: If an unexpected error occurs during reading.
-
-        >>> class DummyProvider:
-        ...     def read_blob(self, branch: str, path: str) -> Optional[str]:
-        ...         if branch == "main" and path == "file.txt":
-        ...             return "content"
-        ...         return None
-        >>> p = DummyProvider()
-        >>> p.read_blob("main", "file.txt")
-        'content'
+            GitCmdException: If the worktree cannot be prepared.
         """
         ...
+    # endregion
 
-    def update_ref(self, ref: str, new_sha: str) -> None:
+    # region Persistence
+    def commit_and_push(self, path: Path, message: str) -> None:
         """
-        Updates a branch pointer (reference) to a new commit SHA.
+        Stages and commits the managed configuration in provider scope.
 
         Args:
-            ref: The full reference name (e.g., 'refs/heads/__repoconf/default/main').
-            new_sha: The commit SHA to point the reference to.
+            path: The stable proxy config path.
+            message: The commit message.
 
         Raises:
-            GitCmdException: If the update fails.
+            GitCmdException: If the persistence operation fails.
 
         >>> class DummyProvider:
-        ...     def update_ref(self, ref: str, new_sha: str) -> None:
+        ...     def commit_and_push(self, path: Path, message: str) -> None:
         ...         pass
         >>> p = DummyProvider()
-        >>> p.update_ref("refs/heads/main", "abcdef123456")
+        >>> p.commit_and_push(Path("./repoconf.config"), "msg")
         """
         ...
+    # endregion
