@@ -1,27 +1,26 @@
 """
-ShellGitProvider implementation using subprocess.
+ShellGitProvider implementation using gitbolt.
 """
 
-import subprocess
-import os
+from pathlib import Path
 from typing import Dict, Optional, List
+
+import gitbolt
+
 from .protocol import GitCmdException
 
 
 class ShellGitProvider:
     """
-    GitProvider implementation that executes Git commands using subprocess.
+    GitProvider implementation that executes Git commands via gitbolt.
     """
 
-    def _get_env(self, custom_env: Optional[Dict[str, str]]) -> Dict[str, str]:
-        env = os.environ.copy()
-        if custom_env:
-            env.update(custom_env)
-        return env
+    def __init__(self, git_root_dir: Path | None = None) -> None:
+        self.git = gitbolt.get_git(git_root_dir or Path.cwd())
 
     def run_unchecked(self, args: List[str], env: Optional[Dict[str, str]] = None, input: Optional[str] = None) -> str:
         """
-        Executes a Git command directly via subprocess.
+        Executes a Git command through gitbolt's unchecked subcommand runner.
 
         Args:
             args: The git command arguments.
@@ -39,14 +38,14 @@ class ShellGitProvider:
         >>> "git version" in version
         True
         """
-        cmd = ["git"] + args
-        merged_env = self._get_env(env)
-        
+        git_cmd = self.git
+        if env:
+            git_cmd = git_cmd.git_envs_override(**env)
+
         try:
-            result = subprocess.run(
-                cmd,
-                env=merged_env,
-                input=input,
+            result = git_cmd.subcmd_unchecked.run(
+                args,
+                _input=input,
                 text=True,
                 capture_output=True,
                 check=False
@@ -56,7 +55,7 @@ class ShellGitProvider:
 
         if result.returncode != 0:
             raise GitCmdException(f"Git command failed with exit code {result.returncode}: {result.stderr.strip()}")
-            
+
         return result.stdout
 
     def read_blob(self, branch: str, path: str) -> Optional[str]:

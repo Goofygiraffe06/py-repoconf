@@ -1,10 +1,12 @@
-import os
-import subprocess
+import gitbolt
+
 from repoconf.providers.worktree import WorktreeGitProvider
 from repoconf.core.engine import ConfigEngine
 
+
 def check_call(args):
-    return subprocess.check_output(args, text=True).strip()
+    git = gitbolt.get_git()
+    return git.subcmd_unchecked.run(args[1:], text=True).stdout.strip()
 
 def run_test():
     print("Testing e2e Virtual Store and Config Engine...")

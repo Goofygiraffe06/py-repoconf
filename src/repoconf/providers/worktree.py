@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import os
 import shutil
-import subprocess
 from pathlib import Path
+
+import gitbolt
 
 from repoconf.providers.protocol import GitCmdException
 
@@ -19,10 +19,12 @@ class WorktreeGitProvider:
         branch: str = "__repoconf/default/main",
         backend_dir_name: str = "repoconf_backend",
         managed_file_name: str = "repoconf.config",
+        git_root_dir: Path | None = None,
     ) -> None:
         self.branch = branch
         self.backend_dir_name = backend_dir_name
         self.managed_file_name = managed_file_name
+        self.git = gitbolt.get_git(git_root_dir or Path.cwd())
 
     @property
     def git_dir(self) -> Path:
@@ -54,7 +56,7 @@ class WorktreeGitProvider:
         env: dict[str, str] | None = None,
         input: str | None = None,
     ) -> str:
-        """Run a git command and return stdout.
+        """Run a git command via gitbolt and return stdout.
 
         Args:
             args: Git command arguments without the ``git`` executable.
@@ -67,16 +69,14 @@ class WorktreeGitProvider:
         Raises:
             GitCmdException: If git exits with non-zero status.
         """
-        command = ["git"] + args
-        merged_env = os.environ.copy()
+        git_cmd = self.git
         if env:
-            merged_env.update(env)
+            git_cmd = git_cmd.git_envs_override(**env)
 
         try:
-            completed = subprocess.run(
-                command,
-                env=merged_env,
-                input=input,
+            completed = git_cmd.subcmd_unchecked.run(
+                args,
+                _input=input,
                 text=True,
                 capture_output=True,
                 check=False,
