@@ -16,12 +16,12 @@ def run_test():
     
     # 1. Set configuration
     print("Setting config...")
-    engine = engine.set(user_name="Repoconf Test User", core_editor="nano")
+    engine = engine.set(repoconf_version="2", core_editor="nano")
     
     # 2. Check Virtual Branch
     print("Checking __repoconf/default/main branch logs...")
     log_out = check_call(["git", "log", "-1", "__repoconf/default/main"])
-    assert "Repoconf Test User" in log_out or "Update" in log_out
+    assert "repoconf.version" in log_out or "Update" in log_out
 
     # Ensure set() call generated only one commit.
     commit_count = int(check_call(["git", "rev-list", "--count", "__repoconf/default/main"]))
@@ -33,8 +33,8 @@ def run_test():
     
     # 4. Check git config resolution
     print("Testing git config --get...")
-    user_name = check_call(["git", "config", "--get", "user.name"])
-    assert user_name == "Repoconf Test User", f"Expected Repoconf Test User, got {user_name}"
+    version = check_call(["git", "config", "--get", "repoconf.version"])
+    assert version == "2", f"Expected repoconf.version=2, got {version}"
     
     print("All e2e tests passed!")
 

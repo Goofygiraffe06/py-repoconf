@@ -96,6 +96,20 @@ class ConfigEngine:
         self.proxy_file.parent.mkdir(parents=True, exist_ok=True)
         self.proxy_file.write_text("", encoding="utf-8")
 
+    def _sync_proxy_from_branch(self) -> None:
+        """
+        Mirror the latest managed branch contents into the stable proxy file.
+
+        The branch remains the source of truth, while the proxy keeps Git's
+        native config resolution working with ``git config --get``.
+        """
+        self._ensure_proxy_file()
+        branch_content = self.provider.read_blob(self.CONFIG_BRANCH, self.MANAGED_FILE_NAME)
+        proxy_content = "" if branch_content is None else branch_content
+        current_content = self.proxy_file.read_text(encoding="utf-8")
+        if current_content != proxy_content:
+            self.proxy_file.write_text(proxy_content, encoding="utf-8")
+
     def _ensure_backend(self) -> None:
         """Ensure the administrative worktree is ready."""
         self.provider.ensure_worktree(self.CONFIG_BRANCH, self.backend_worktree)
@@ -106,14 +120,18 @@ class ConfigEngine:
         """
         Execute a single set command against the stable proxy.
         """
-        self._ensure_backend()
-        self._ensure_proxy_file()
-        self._setup_native_resolution()
+        self._prepare_proxy()
 
         # Local write via proxy using Git config file manipulation
         self.provider.run_unchecked(["config", "--file", str(self.proxy_file), cmd.key, cmd.value])
 
         return self.clone()
+
+    def _prepare_proxy(self) -> None:
+        """Ensure backend, proxy content, and include wiring are ready."""
+        self._ensure_backend()
+        self._sync_proxy_from_branch()
+        self._setup_native_resolution()
 
     def set(self, **kwargs: Unpack[RepoConfigSchema]) -> 'ConfigEngine':
         """
@@ -133,8 +151,11 @@ class ConfigEngine:
             payload = CommandBuilder.build_set_command(prop=prop, value=value)
             commands.append(SetSubcommand(**payload))
 
+        if commands:
+            engine._prepare_proxy()
+
         for cmd in commands:
-            engine = engine.execute_set(cmd)
+            engine.provider.run_unchecked(["config", "--file", str(engine.proxy_file), cmd.key, cmd.value])
 
         if commands:
             keys = ", ".join(cmd.key for cmd in commands)
@@ -146,6 +167,7 @@ class ConfigEngine:
         """
         Executes a GetSubcommand.
         """
+        self._prepare_proxy()
         try:
             return self.provider.run_unchecked(["config", "--get", cmd.key]).strip()
         except GitCmdException:

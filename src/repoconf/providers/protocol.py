@@ -58,6 +58,31 @@ class GitProvider(Protocol):
         ...
     # endregion
 
+    # region Virtual Tree Access
+    def read_blob(self, branch: str, path: str) -> str | None:
+        """
+        Reads a tracked blob from a branch or ref without touching the worktree.
+
+        Args:
+            branch: The branch or ref name to inspect.
+            path: The file path within that tree.
+
+        Returns:
+            The blob content, or ``None`` when the ref/path does not exist.
+        """
+        ...
+
+    def update_ref(self, ref: str, new_sha: str) -> None:
+        """
+        Atomically updates a Git ref to a new commit SHA.
+
+        Args:
+            ref: The full reference name.
+            new_sha: The commit SHA to write.
+        """
+        ...
+    # endregion
+
     # region Persistence
     def commit_and_push(self, path: Path, message: str) -> None:
         """

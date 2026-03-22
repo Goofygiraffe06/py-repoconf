@@ -120,6 +120,23 @@ class WorktreeGitProvider:
         if not backend_file.exists():
             backend_file.write_text("", encoding="utf-8")
 
+    def read_blob(self, branch: str, path: str) -> str | None:
+        """Read the content of a blob from a branch or ref."""
+        try:
+            ls_tree_output = self.run_unchecked(["ls-tree", branch, path])
+            if not ls_tree_output.strip():
+                return None
+
+            return self.run_unchecked(["cat-file", "blob", f"{branch}:{path}"])
+        except GitCmdException as exc:
+            if "Not a valid object name" in str(exc) or "bad revision" in str(exc):
+                return None
+            raise
+
+    def update_ref(self, ref: str, new_sha: str) -> None:
+        """Atomically update a Git ref."""
+        self.run_unchecked(["update-ref", ref, new_sha])
+
     def commit_and_push(self, path: Path, message: str) -> None:
         """Persist managed config updates to the worktree branch.
 
