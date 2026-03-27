@@ -14,14 +14,16 @@ class VirtualStore:
     Uses pure Git plumbing to avoid modifying the current HEAD or working directory.
     """
 
-    def __init__(self, provider: GitProvider, branch: str = "refs/heads/__repoconf/default/main"):
+    def __init__(
+        self, provider: GitProvider, branch: str = "refs/heads/__repoconf/default/main"
+    ):
         self.provider = provider
         self.branch = branch
 
-    def clone(self) -> 'VirtualStore':
+    def clone(self) -> "VirtualStore":
         """
         Implements the Clone Pattern for immutability.
-        
+
         >>> from repoconf.providers.shell import ShellGitProvider
         >>> store1 = VirtualStore(ShellGitProvider())
         >>> store2 = store1.clone()
@@ -33,11 +35,15 @@ class VirtualStore:
     def _get_parent_commit(self) -> Optional[str]:
         """Gets the current commit SHA of the branch if it exists."""
         try:
-            return self.provider.run_unchecked(["rev-parse", "-q", "--verify", self.branch]).strip()
+            return self.provider.run_unchecked(
+                ["rev-parse", "-q", "--verify", self.branch]
+            ).strip()
         except GitCmdException:
             return None
 
-    def commit_file(self, local_file_path: str, target_path: str, message: str) -> 'VirtualStore':
+    def commit_file(
+        self, local_file_path: str, target_path: str, message: str
+    ) -> "VirtualStore":
         """
         Commits a local file directly to the virtual branch.
 
@@ -55,13 +61,15 @@ class VirtualStore:
             raise FileNotFoundError(f"Local file {local_file_path} not found.")
 
         # 1. hash-object
-        blob_sha = self.provider.run_unchecked(["hash-object", "-w", local_file_path]).strip()
+        blob_sha = self.provider.run_unchecked(
+            ["hash-object", "-w", local_file_path]
+        ).strip()
 
         # Create a temporary index file path
         fd, temp_index_path = tempfile.mkstemp(prefix="repoconf_idx_")
         os.close(fd)
-        os.remove(temp_index_path) # Delete it so Git creates a valid index file
-        
+        os.remove(temp_index_path)  # Delete it so Git creates a valid index file
+
         env = {"GIT_INDEX_FILE": temp_index_path}
 
         try:
@@ -72,8 +80,15 @@ class VirtualStore:
 
             # 2. update-index
             self.provider.run_unchecked(
-                ["update-index", "--add", "--cacheinfo", "100644", blob_sha, target_path],
-                env=env
+                [
+                    "update-index",
+                    "--add",
+                    "--cacheinfo",
+                    "100644",
+                    blob_sha,
+                    target_path,
+                ],
+                env=env,
             )
 
             # 3. write-tree
@@ -83,7 +98,7 @@ class VirtualStore:
             commit_args = ["commit-tree", tree_sha, "-m", message]
             if parent_sha:
                 commit_args.extend(["-p", parent_sha])
-            
+
             commit_sha = self.provider.run_unchecked(commit_args).strip()
 
             # 5. update-ref

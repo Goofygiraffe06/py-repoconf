@@ -120,7 +120,9 @@ class FakeGitProvider:
         del ref, new_sha
 
     def commit_and_push(self, path: Path, message: str) -> None:
-        self.branch_blobs[(self.branch, self.managed_file_name)] = path.read_text(encoding="utf-8")
+        self.branch_blobs[(self.branch, self.managed_file_name)] = path.read_text(
+            encoding="utf-8"
+        )
         self.commit_messages.append(message)
 
 
@@ -164,7 +166,9 @@ def test_engine_get_syncs_proxy_from_branch(fake_provider_dir: Path) -> None:
     assert provider.include_paths == [engine.INCLUDE_PATH]
 
 
-def test_engine_set_preserves_branch_state_when_proxy_is_stale(fake_provider_dir: Path) -> None:
+def test_engine_set_preserves_branch_state_when_proxy_is_stale(
+    fake_provider_dir: Path,
+) -> None:
     provider = FakeGitProvider(fake_provider_dir)
     provider.seed_branch_value("repoconf.version", "1")
     engine = ConfigEngine(provider)
@@ -184,7 +188,9 @@ def test_engine_set_preserves_branch_state_when_proxy_is_stale(fake_provider_dir
     assert provider.commit_messages == ["Update repoconf keys: core.editor"]
 
 
-def test_engine_set_preserves_all_keys_in_multi_write_batch(fake_provider_dir: Path) -> None:
+def test_engine_set_preserves_all_keys_in_multi_write_batch(
+    fake_provider_dir: Path,
+) -> None:
     provider = FakeGitProvider(fake_provider_dir)
     provider.seed_branch_value("repoconf.version", "1")
     engine = ConfigEngine(provider)
@@ -199,4 +205,6 @@ def test_engine_set_preserves_all_keys_in_multi_write_batch(fake_provider_dir: P
 
     assert read_git_config_value(branch_path, "repoconf.version") == "2"
     assert read_git_config_value(branch_path, "core.editor") == "nano"
-    assert provider.commit_messages == ["Update repoconf keys: repoconf.version, core.editor"]
+    assert provider.commit_messages == [
+        "Update repoconf keys: repoconf.version, core.editor"
+    ]

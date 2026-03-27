@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import shutil
+from importlib import import_module
 from pathlib import Path
-
-import gitbolt
+from typing import Any, cast
 
 from repoconf.providers.protocol import GitCmdException
+
+
+def _get_git(git_root_dir: Path) -> Any:
+    """Load gitbolt lazily so static analysis doesn't require it in every env."""
+    try:
+        gitbolt = import_module("gitbolt")
+    except ModuleNotFoundError as exc:
+        raise GitCmdException("gitbolt is required to use WorktreeGitProvider") from exc
+    return cast(Any, gitbolt).get_git(git_root_dir)
 
 
 class WorktreeGitProvider:
@@ -24,7 +33,7 @@ class WorktreeGitProvider:
         self.branch = branch
         self.backend_dir_name = backend_dir_name
         self.managed_file_name = managed_file_name
-        self.git = gitbolt.get_git(git_root_dir or Path.cwd())
+        self.git: Any = _get_git(git_root_dir or Path.cwd())
 
     @property
     def git_dir(self) -> Path:
@@ -47,6 +56,7 @@ class WorktreeGitProvider:
     def proxy_path(self) -> Path:
         """Return the stable local proxy file path."""
         return self.git_dir / self.managed_file_name
+
     # endregion
 
     # region Protocol Methods
@@ -70,8 +80,6 @@ class WorktreeGitProvider:
             GitCmdException: If git exits with non-zero status.
         """
         git_cmd = self.git
-        if env:
-            git_cmd = git_cmd.git_envs_override(**env)
 
         try:
             completed = git_cmd.subcmd_unchecked.run(
@@ -80,13 +88,16 @@ class WorktreeGitProvider:
                 text=True,
                 capture_output=True,
                 check=False,
+                env=env,
             )
         except Exception as exc:
             raise GitCmdException(f"Failed to execute git command: {exc}") from exc
 
         if completed.returncode != 0:
             stderr = completed.stderr.strip()
-            raise GitCmdException(f"Git command failed with exit code {completed.returncode}: {stderr}")
+            raise GitCmdException(
+                f"Git command failed with exit code {completed.returncode}: {stderr}"
+            )
         return completed.stdout
 
     def ensure_worktree(self, branch: str, path: Path) -> None:
@@ -102,7 +113,9 @@ class WorktreeGitProvider:
         if not (worktree_path / ".git").exists():
             if worktree_path.exists():
                 shutil.rmtree(worktree_path)
-            self.run_unchecked(["worktree", "add", "--force", "--detach", str(worktree_path)])
+            self.run_unchecked(
+                ["worktree", "add", "--force", "--detach", str(worktree_path)]
+            )
 
         has_branch = True
         try:
@@ -113,7 +126,9 @@ class WorktreeGitProvider:
         if has_branch:
             self.run_unchecked(["-C", str(worktree_path), "checkout", branch])
         else:
-            self.run_unchecked(["-C", str(worktree_path), "checkout", "--orphan", branch])
+            self.run_unchecked(
+                ["-C", str(worktree_path), "checkout", "--orphan", branch]
+            )
 
         # Ensure the managed file exists in the backend worktree.
         backend_file = worktree_path / self.managed_file_name
@@ -155,10 +170,14 @@ class WorktreeGitProvider:
         else:
             backend_file.write_text("", encoding="utf-8")
 
-        self.run_unchecked(["-C", str(self.backend_path), "add", self.managed_file_name])
+        self.run_unchecked(
+            ["-C", str(self.backend_path), "add", self.managed_file_name]
+        )
 
         # Skip commit when there is no staged diff.
-        diff = self.run_unchecked(["-C", str(self.backend_path), "diff", "--cached", "--name-only"]).strip()
+        diff = self.run_unchecked(
+            ["-C", str(self.backend_path), "diff", "--cached", "--name-only"]
+        ).strip()
         if not diff:
             return
 
@@ -168,11 +187,16 @@ class WorktreeGitProvider:
             "GIT_COMMITTER_NAME": "repoconf",
             "GIT_COMMITTER_EMAIL": "repoconf@local",
         }
-        self.run_unchecked(["-C", str(self.backend_path), "commit", "-m", message], env=env)
+        self.run_unchecked(
+            ["-C", str(self.backend_path), "commit", "-m", message], env=env
+        )
 
         # Push is best-effort because many repos have no default push target.
         try:
-            self.run_unchecked(["-C", str(self.backend_path), "push", "-u", "origin", self.branch])
+            self.run_unchecked(
+                ["-C", str(self.backend_path), "push", "-u", "origin", self.branch]
+            )
         except GitCmdException:
             pass
+
     # endregion

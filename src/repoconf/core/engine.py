@@ -14,6 +14,7 @@ from repoconf.providers.worktree import WorktreeGitProvider
 @dataclass
 class SetSubcommand:
     """Represents a validated 'set' action."""
+
     key: str
     value: str
 
@@ -21,6 +22,7 @@ class SetSubcommand:
 @dataclass
 class GetSubcommand:
     """Represents a 'get' action."""
+
     key: str
 
 
@@ -41,23 +43,24 @@ class ConfigEngine:
     def __init__(self, provider: GitProvider | None = None):
         self.provider = provider or WorktreeGitProvider()
 
-    def clone(self) -> 'ConfigEngine':
+    def clone(self) -> "ConfigEngine":
         """
         Implements the Clone Pattern for immutability.
-        
+
         >>> engine1 = ConfigEngine()
         >>> engine2 = engine1.clone()
         >>> engine1 is not engine2
         True
         """
         return ConfigEngine(self.provider)
+
     # endregion
 
     # region Paths
     @property
     def git_dir(self) -> Path:
         """Dynamically resolve the absolute git directory path."""
-        if not hasattr(self, '_git_dir'):
+        if not hasattr(self, "_git_dir"):
             git_dir = self.provider.run_unchecked(["rev-parse", "--git-dir"]).strip()
             self._git_dir = Path(git_dir).resolve()
         return self._git_dir
@@ -71,6 +74,7 @@ class ConfigEngine:
     def backend_worktree(self) -> Path:
         """Path for the hidden administrative worktree."""
         return self.git_dir / self.BACKEND_DIR_NAME
+
     # endregion
 
     # region Internal Setup
@@ -80,13 +84,17 @@ class ConfigEngine:
         """
         try:
             # Check if it's already set
-            current_includes = self.provider.run_unchecked(["config", "--local", "--get-all", "include.path"]).splitlines()
+            current_includes = self.provider.run_unchecked(
+                ["config", "--local", "--get-all", "include.path"]
+            ).splitlines()
             if self.INCLUDE_PATH in current_includes:
                 return
         except GitCmdException:
             pass  # Key doesn't exist
 
-        self.provider.run_unchecked(["config", "--local", "--add", "include.path", self.INCLUDE_PATH])
+        self.provider.run_unchecked(
+            ["config", "--local", "--add", "include.path", self.INCLUDE_PATH]
+        )
 
     def _ensure_proxy_file(self) -> None:
         """Ensure the stable local proxy file exists under ``.git``."""
@@ -104,7 +112,9 @@ class ConfigEngine:
         native config resolution working with ``git config --get``.
         """
         self._ensure_proxy_file()
-        branch_content = self.provider.read_blob(self.CONFIG_BRANCH, self.MANAGED_FILE_NAME)
+        branch_content = self.provider.read_blob(
+            self.CONFIG_BRANCH, self.MANAGED_FILE_NAME
+        )
         proxy_content = "" if branch_content is None else branch_content
         current_content = self.proxy_file.read_text(encoding="utf-8")
         if current_content != proxy_content:
@@ -113,17 +123,20 @@ class ConfigEngine:
     def _ensure_backend(self) -> None:
         """Ensure the administrative worktree is ready."""
         self.provider.ensure_worktree(self.CONFIG_BRANCH, self.backend_worktree)
+
     # endregion
 
     # region Commands
-    def execute_set(self, cmd: SetSubcommand) -> 'ConfigEngine':
+    def execute_set(self, cmd: SetSubcommand) -> "ConfigEngine":
         """
         Execute a single set command against the stable proxy.
         """
         self._prepare_proxy()
 
         # Local write via proxy using Git config file manipulation
-        self.provider.run_unchecked(["config", "--file", str(self.proxy_file), cmd.key, cmd.value])
+        self.provider.run_unchecked(
+            ["config", "--file", str(self.proxy_file), cmd.key, cmd.value]
+        )
 
         return self.clone()
 
@@ -133,7 +146,7 @@ class ConfigEngine:
         self._sync_proxy_from_branch()
         self._setup_native_resolution()
 
-    def set(self, **kwargs: Unpack[RepoConfigSchema]) -> 'ConfigEngine':
+    def set(self, **kwargs: Unpack[RepoConfigSchema]) -> "ConfigEngine":
         """
         High-level Builder method to set configurations.
         Includes built-in validation using the schema registry.
@@ -155,11 +168,15 @@ class ConfigEngine:
             engine._prepare_proxy()
 
         for cmd in commands:
-            engine.provider.run_unchecked(["config", "--file", str(engine.proxy_file), cmd.key, cmd.value])
+            engine.provider.run_unchecked(
+                ["config", "--file", str(engine.proxy_file), cmd.key, cmd.value]
+            )
 
         if commands:
             keys = ", ".join(cmd.key for cmd in commands)
-            engine.provider.commit_and_push(engine.proxy_file, f"Update repoconf keys: {keys}")
+            engine.provider.commit_and_push(
+                engine.proxy_file, f"Update repoconf keys: {keys}"
+            )
 
         return engine
 
@@ -179,4 +196,5 @@ class ConfigEngine:
         """
         payload = CommandBuilder.build_get_command(prop=prop)
         return self.execute_get(GetSubcommand(**payload))
+
     # endregion

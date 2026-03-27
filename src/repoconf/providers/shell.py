@@ -3,7 +3,7 @@ ShellGitProvider implementation using gitbolt.
 """
 
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Any, Dict, Optional, List, cast
 
 import gitbolt
 
@@ -18,7 +18,12 @@ class ShellGitProvider:
     def __init__(self, git_root_dir: Path | None = None) -> None:
         self.git = gitbolt.get_git(git_root_dir or Path.cwd())
 
-    def run_unchecked(self, args: List[str], env: Optional[Dict[str, str]] = None, input: Optional[str] = None) -> str:
+    def run_unchecked(
+        self,
+        args: List[str],
+        env: Optional[Dict[str, str]] = None,
+        input: Optional[str] = None,
+    ) -> str:
         """
         Executes a Git command through gitbolt's unchecked subcommand runner.
 
@@ -39,22 +44,23 @@ class ShellGitProvider:
         True
         """
         git_cmd = self.git
-        if env:
-            git_cmd = git_cmd.git_envs_override(**env)
 
         try:
-            result = git_cmd.subcmd_unchecked.run(
+            result = cast(Any, git_cmd).subcmd_unchecked.run(
                 args,
                 _input=input,
                 text=True,
                 capture_output=True,
-                check=False
+                check=False,
+                env=env,
             )
         except Exception as e:
             raise GitCmdException(f"Failed to execute git command: {e}")
 
         if result.returncode != 0:
-            raise GitCmdException(f"Git command failed with exit code {result.returncode}: {result.stderr.strip()}")
+            raise GitCmdException(
+                f"Git command failed with exit code {result.returncode}: {result.stderr.strip()}"
+            )
 
         return result.stdout
 
@@ -77,7 +83,7 @@ class ShellGitProvider:
             ls_tree_output = self.run_unchecked(["ls-tree", branch, path])
             if not ls_tree_output.strip():
                 return None
-            
+
             # Read the content using cat-file
             content = self.run_unchecked(["cat-file", "blob", f"{branch}:{path}"])
             return content

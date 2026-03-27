@@ -15,6 +15,7 @@ class RepoConfigSchema(TypedDict, total=False):
     Schema for allowed configuration keys.
     Uses TypedDict to define expected types and known keys.
     """
+
     user_name: str
     user_email: str
     core_editor: str
@@ -47,6 +48,7 @@ class Validator(Protocol):
     >>> v: Validator = DummyValidator()
     >>> v.validate()
     """
+
     def validate(self) -> None:
         """
         Validates the state.
@@ -57,9 +59,10 @@ class Validator(Protocol):
 
 class ConfigArgumentValidator:
     """
-    Validates configuration key strings to prevent shell injection 
+    Validates configuration key strings to prevent shell injection
     and ensure they are in the correct format.
     """
+
     def __init__(self, key: str, value: Any = None):
         self.key = key
         self.value = value
@@ -75,10 +78,12 @@ class ConfigArgumentValidator:
             ...
         ValueError: Invalid characters in configuration key 'bad name'
         """
-        if not self.key.replace('.', '').replace('-', '').replace('_', '').isalnum():
+        if not self.key.replace(".", "").replace("-", "").replace("_", "").isalnum():
             raise ValueError(f"Invalid characters in configuration key '{self.key}'")
 
-        if self.value is not None and not isinstance(self.value, (str, int, float, bool)):
+        if self.value is not None and not isinstance(
+            self.value, (str, int, float, bool)
+        ):
             raise ValueError(f"Unsupported value type for key '{self.key}'")
 
 
@@ -87,6 +92,7 @@ class SetCommandValidator:
     Validator for a set operation ensuring that the keys are part of the schema
     and correctly typed.
     """
+
     def __init__(self, **kwargs: Unpack[RepoConfigSchema]):
         self.kwargs = kwargs
 
@@ -140,4 +146,5 @@ class CommandBuilder:
         key = prop.replace("_", ".")
         ConfigArgumentValidator(key=key).validate()
         return {"key": key}
+
     # endregion

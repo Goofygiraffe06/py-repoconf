@@ -6,6 +6,7 @@ from typing import Protocol
 
 class GitCmdException(Exception):
     """Exception raised when a Git command fails."""
+
     pass
 
 
@@ -41,6 +42,7 @@ class GitProvider(Protocol):
         'dummy output\\n'
         """
         ...
+
     # endregion
 
     # region Worktree Lifecycle
@@ -56,6 +58,7 @@ class GitProvider(Protocol):
             GitCmdException: If the worktree cannot be prepared.
         """
         ...
+
     # endregion
 
     # region Virtual Tree Access
@@ -81,6 +84,7 @@ class GitProvider(Protocol):
             new_sha: The commit SHA to write.
         """
         ...
+
     # endregion
 
     # region Persistence
@@ -102,4 +106,5 @@ class GitProvider(Protocol):
         >>> p.commit_and_push(Path("./repoconf.config"), "msg")
         """
         ...
+
     # endregion
