@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Unpack
 
-from repoconf.core.registry import CommandBuilder, RepoConfigSchema, SetCommandValidator
+from repoconf.core.registry import CommandBuilder, ConfigValue, SetCommandValidator
 from repoconf.providers.protocol import GitCmdException, GitProvider
 from repoconf.providers.worktree import WorktreeGitProvider
 
@@ -146,10 +145,10 @@ class ConfigEngine:
         self._sync_proxy_from_branch()
         self._setup_native_resolution()
 
-    def set(self, **kwargs: Unpack[RepoConfigSchema]) -> "ConfigEngine":
+    def set(self, **kwargs: ConfigValue) -> "ConfigEngine":
         """
         High-level Builder method to set configurations.
-        Includes built-in validation using the schema registry.
+        Includes built-in validation of key format and value types.
 
         Returns:
             A new ConfigEngine instance (Clone Pattern).

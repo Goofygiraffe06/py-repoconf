@@ -5,9 +5,13 @@ import pytest
 from repoconf.core.registry import CommandBuilder, SetCommandValidator
 
 
-def test_set_command_validator_rejects_unknown_key() -> None:
-    with pytest.raises(ValueError, match="not allowed"):
-        SetCommandValidator(unknown_key="x").validate()  # type: ignore[arg-type]
+def test_set_command_validator_accepts_arbitrary_key() -> None:
+    SetCommandValidator(branch_main_description="shareable branch").validate()
+
+
+def test_set_command_validator_rejects_unsupported_value_type() -> None:
+    with pytest.raises(ValueError, match="Unsupported value type"):
+        SetCommandValidator(custom_setting=["x"]).validate()  # type: ignore[arg-type]
 
 
 def test_command_builder_builds_set_payload() -> None:

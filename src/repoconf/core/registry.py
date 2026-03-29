@@ -1,27 +1,8 @@
 """Config schema registry, validators, and command builders."""
 
-from typing import Any, Protocol, TypedDict
+from typing import Protocol, TypedDict
 
-try:
-    from typing import Unpack
-except ImportError:
-    from typing_extensions import Unpack
-
-
-# We define the schema with standard Python identifiers.
-# These will be mapped to "section.key" internally (e.g. user_name -> user.name).
-class RepoConfigSchema(TypedDict, total=False):
-    """
-    Schema for allowed configuration keys.
-    Uses TypedDict to define expected types and known keys.
-    """
-
-    user_name: str
-    user_email: str
-    core_editor: str
-    core_filemode: str
-    core_symlinks: str
-    repoconf_version: str
+type ConfigValue = str | int | float | bool
 
 
 class SetCommandSchema(TypedDict):
@@ -63,7 +44,7 @@ class ConfigArgumentValidator:
     and ensure they are in the correct format.
     """
 
-    def __init__(self, key: str, value: Any = None):
+    def __init__(self, key: str, value: object | None = None):
         self.key = key
         self.value = value
 
@@ -89,29 +70,26 @@ class ConfigArgumentValidator:
 
 class SetCommandValidator:
     """
-    Validator for a set operation ensuring that the keys are part of the schema
-    and correctly typed.
+    Validator for a set operation ensuring that keys and values are well-formed.
     """
 
-    def __init__(self, **kwargs: Unpack[RepoConfigSchema]):
+    def __init__(self, **kwargs: ConfigValue):
         self.kwargs = kwargs
 
     def validate(self) -> None:
         """
-        Validates the kwargs against the schema.
+        Validates the kwargs against the accepted key/value rules.
 
-        >>> v = SetCommandValidator(user_name="test")
+        >>> v = SetCommandValidator(user_name="test", branch_main_description="Docs")
         >>> v.validate()
-        >>> v2 = SetCommandValidator(unknown_key="test") # type: ignore
+        >>> v2 = SetCommandValidator(custom_setting=["bad"]) # type: ignore[arg-type]
         >>> v2.validate()
         Traceback (most recent call last):
             ...
-        ValueError: Key 'unknown_key' is not allowed in schema.
+        ValueError: Unsupported value type for key 'custom.setting'
         """
-        allowed_keys = getattr(RepoConfigSchema, "__annotations__", {})
-        for key in self.kwargs:
-            if key not in allowed_keys:
-                raise ValueError(f"Key '{key}' is not allowed in schema.")
+        for key, value in self.kwargs.items():
+            ConfigArgumentValidator(key=key.replace("_", "."), value=value).validate()
 
 
 class CommandBuilder:
@@ -119,7 +97,7 @@ class CommandBuilder:
 
     # region Builders
     @staticmethod
-    def build_set_command(prop: str, value: Any) -> SetCommandSchema:
+    def build_set_command(prop: str, value: ConfigValue) -> SetCommandSchema:
         """Build a set command payload after validation.
 
         Args:
