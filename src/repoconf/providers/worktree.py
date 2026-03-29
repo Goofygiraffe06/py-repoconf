@@ -7,6 +7,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, cast
 
+from repoconf.constants import BACKEND_DIR_NAME, CONFIG_BRANCH, MANAGED_FILE_NAME
 from repoconf.providers.protocol import GitCmdException
 
 
@@ -25,27 +26,23 @@ class WorktreeGitProvider:
     # region Setup
     def __init__(
         self,
-        branch: str = "__repoconf/default/main",
-        backend_dir_name: str = "repoconf_backend",
-        managed_file_name: str = "repoconf.config",
+        branch: str = CONFIG_BRANCH,
+        backend_dir_name: str = BACKEND_DIR_NAME,
+        managed_file_name: str = MANAGED_FILE_NAME,
         git_root_dir: Path | None = None,
     ) -> None:
         self.branch = branch
         self.backend_dir_name = backend_dir_name
         self.managed_file_name = managed_file_name
-        self.git: Any = _get_git(git_root_dir or Path.cwd())
+        self.git_root_dir = Path(git_root_dir or Path.cwd()).resolve()
+        self.git: Any = _get_git(self.git_root_dir)
+        self.git_dir = self._resolve_git_dir()
 
-    @property
-    def git_dir(self) -> Path:
-        """Return the current repository git directory path.
-
-        Returns:
-            The absolute path to the git directory.
-        """
-        if not hasattr(self, "_git_dir"):
-            raw = self.run_unchecked(["rev-parse", "--git-dir"]).strip()
-            self._git_dir = Path(raw).resolve()
-        return self._git_dir
+    def _resolve_git_dir(self) -> Path:
+        raw_git_dir = Path(self.run_unchecked(["rev-parse", "--git-dir"]).strip())
+        if raw_git_dir.is_absolute():
+            return raw_git_dir.resolve()
+        return (self.git_root_dir / raw_git_dir).resolve()
 
     @property
     def backend_path(self) -> Path:

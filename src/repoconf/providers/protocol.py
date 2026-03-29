@@ -13,6 +13,9 @@ class GitCmdException(Exception):
 class GitProvider(Protocol):
     """Protocol defining the interface for Git backend providers."""
 
+    git_root_dir: Path
+    git_dir: Path
+
     # region Direct Commands
     def run_unchecked(
         self,

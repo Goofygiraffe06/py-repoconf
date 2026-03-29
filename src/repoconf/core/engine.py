@@ -1,10 +1,14 @@
 """Native integration and immutable configuration engine."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
 
+from repoconf.constants import (
+    BACKEND_DIR_NAME,
+    CONFIG_BRANCH,
+    INCLUDE_PATH,
+    MANAGED_FILE_NAME,
+)
 from repoconf.core.registry import CommandBuilder, ConfigValue, SetCommandValidator
 from repoconf.providers.protocol import GitCmdException, GitProvider
 from repoconf.providers.worktree import WorktreeGitProvider
@@ -31,16 +35,20 @@ class ConfigEngine:
     via Git's native configuration stack and a proxy file.
     """
 
-    # region Constants
-    INCLUDE_PATH = "../repoconf.config"
-    CONFIG_BRANCH = "__repoconf/default/main"
-    BACKEND_DIR_NAME = "repoconf_backend"
-    MANAGED_FILE_NAME = "repoconf.config"
-    # endregion
-
     # region Lifecycle
-    def __init__(self, provider: GitProvider | None = None):
-        self.provider = provider or WorktreeGitProvider()
+    def __init__(
+        self,
+        provider: GitProvider | None = None,
+        git_root_dir: Path | None = None,
+    ):
+        if provider is None:
+            self.provider = WorktreeGitProvider(git_root_dir=git_root_dir)
+            return
+
+        if git_root_dir is not None and provider.git_root_dir != Path(git_root_dir).resolve():
+            raise ValueError("ConfigEngine git_root_dir must match the provider root")
+
+        self.provider = provider
 
     def clone(self) -> "ConfigEngine":
         """
@@ -58,21 +66,18 @@ class ConfigEngine:
     # region Paths
     @property
     def git_dir(self) -> Path:
-        """Dynamically resolve the absolute git directory path."""
-        if not hasattr(self, "_git_dir"):
-            git_dir = self.provider.run_unchecked(["rev-parse", "--git-dir"]).strip()
-            self._git_dir = Path(git_dir).resolve()
-        return self._git_dir
+        """Return the provider-bound absolute git directory path."""
+        return self.provider.git_dir
 
     @property
     def proxy_file(self) -> Path:
         """The absolute path to the proxy file inside the git directory."""
-        return self.git_dir / self.MANAGED_FILE_NAME
+        return self.git_dir / MANAGED_FILE_NAME
 
     @property
     def backend_worktree(self) -> Path:
         """Path for the hidden administrative worktree."""
-        return self.git_dir / self.BACKEND_DIR_NAME
+        return self.git_dir / BACKEND_DIR_NAME
 
     # endregion
 
@@ -86,13 +91,13 @@ class ConfigEngine:
             current_includes = self.provider.run_unchecked(
                 ["config", "--local", "--get-all", "include.path"]
             ).splitlines()
-            if self.INCLUDE_PATH in current_includes:
+            if INCLUDE_PATH in current_includes:
                 return
         except GitCmdException:
             pass  # Key doesn't exist
 
         self.provider.run_unchecked(
-            ["config", "--local", "--add", "include.path", self.INCLUDE_PATH]
+            ["config", "--local", "--add", "include.path", INCLUDE_PATH]
         )
 
     def _ensure_proxy_file(self) -> None:
@@ -111,9 +116,7 @@ class ConfigEngine:
         native config resolution working with ``git config --get``.
         """
         self._ensure_proxy_file()
-        branch_content = self.provider.read_blob(
-            self.CONFIG_BRANCH, self.MANAGED_FILE_NAME
-        )
+        branch_content = self.provider.read_blob(CONFIG_BRANCH, MANAGED_FILE_NAME)
         proxy_content = "" if branch_content is None else branch_content
         current_content = self.proxy_file.read_text(encoding="utf-8")
         if current_content != proxy_content:
@@ -121,7 +124,7 @@ class ConfigEngine:
 
     def _ensure_backend(self) -> None:
         """Ensure the administrative worktree is ready."""
-        self.provider.ensure_worktree(self.CONFIG_BRANCH, self.backend_worktree)
+        self.provider.ensure_worktree(CONFIG_BRANCH, self.backend_worktree)
 
     # endregion
 

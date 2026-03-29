@@ -16,7 +16,15 @@ class ShellGitProvider:
     """
 
     def __init__(self, git_root_dir: Path | None = None) -> None:
-        self.git = gitbolt.get_git(git_root_dir or Path.cwd())
+        self.git_root_dir = Path(git_root_dir or Path.cwd()).resolve()
+        self.git = gitbolt.get_git(self.git_root_dir)
+        self.git_dir = self._resolve_git_dir()
+
+    def _resolve_git_dir(self) -> Path:
+        raw_git_dir = Path(self.run_unchecked(["rev-parse", "--git-dir"]).strip())
+        if raw_git_dir.is_absolute():
+            return raw_git_dir.resolve()
+        return (self.git_root_dir / raw_git_dir).resolve()
 
     def run_unchecked(
         self,

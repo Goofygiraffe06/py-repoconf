@@ -8,6 +8,7 @@ from typing import Generator
 
 import pytest
 
+from repoconf.constants import INCLUDE_PATH
 from repoconf.core.engine import ConfigEngine
 from repoconf.providers.protocol import GitCmdException
 
@@ -48,7 +49,8 @@ class FakeGitProvider:
         branch: str = "__repoconf/default/main",
         managed_file_name: str = "repoconf.config",
     ) -> None:
-        self._git_dir = git_dir
+        self.git_root_dir = git_dir
+        self.git_dir = git_dir
         self.branch = branch
         self.managed_file_name = managed_file_name
         self.include_paths: list[str] = []
@@ -57,15 +59,15 @@ class FakeGitProvider:
 
     @property
     def proxy_path(self) -> Path:
-        return self._git_dir / self.managed_file_name
+        return self.git_dir / self.managed_file_name
 
     @property
     def backend_path(self) -> Path:
-        return self._git_dir / "repoconf_backend"
+        return self.git_dir / "repoconf_backend"
 
     def seed_branch_value(self, key: str, value: str) -> None:
         """Seed a value directly in the managed branch snapshot."""
-        seed_path = self._git_dir / "branch_seed.config"
+        seed_path = self.git_dir / "branch_seed.config"
         seed_path.unlink(missing_ok=True)
         existing_content = self.branch_blobs.get((self.branch, self.managed_file_name))
         if existing_content is not None:
@@ -85,7 +87,7 @@ class FakeGitProvider:
         del env, input
 
         if args == ["rev-parse", "--git-dir"]:
-            return f"{self._git_dir}\n"
+            return f"{self.git_dir}\n"
 
         if args[:4] == ["config", "--local", "--get-all", "include.path"]:
             if not self.include_paths:
@@ -163,7 +165,7 @@ def test_engine_get_syncs_proxy_from_branch(fake_provider_dir: Path) -> None:
 
     assert engine.get("repoconf_version") == "2"
     assert read_git_config_value(engine.proxy_file, "repoconf.version") == "2"
-    assert provider.include_paths == [engine.INCLUDE_PATH]
+    assert provider.include_paths == [INCLUDE_PATH]
 
 
 def test_engine_set_preserves_branch_state_when_proxy_is_stale(
