@@ -5,6 +5,8 @@ from typing import Protocol
 
 from repoconf.exceptions import GitCmdException
 
+__all__ = ["GitCmdException", "GitProvider"]
+
 
 class GitProvider(Protocol):
     """Protocol defining the interface for Git backend providers."""
