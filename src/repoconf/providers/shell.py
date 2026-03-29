@@ -81,7 +81,9 @@ class ShellGitProvider:
             GitCmdException: If an unexpected error occurs during reading.
         """
         try:
-            ls_tree_output = self.git.ls_tree_subcmd.ls_tree(branch, path=[path]).strip()
+            ls_tree_output = self.git.ls_tree_subcmd.ls_tree(
+                branch, path=[path]
+            ).strip()
             if not ls_tree_output:
                 return None
 

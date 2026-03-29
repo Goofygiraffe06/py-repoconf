@@ -46,7 +46,10 @@ class ConfigEngine:
             self.provider = WorktreeGitProvider(git_root_dir=git_root_dir)
             return
 
-        if git_root_dir is not None and provider.git_root_dir != Path(git_root_dir).resolve():
+        if (
+            git_root_dir is not None
+            and provider.git_root_dir != Path(git_root_dir).resolve()
+        ):
             raise ValueError("ConfigEngine git_root_dir must match the provider root")
 
         self.provider = provider

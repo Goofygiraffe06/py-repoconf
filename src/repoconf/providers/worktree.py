@@ -122,7 +122,9 @@ class WorktreeGitProvider:
     def read_blob(self, branch: str, path: str) -> str | None:
         """Read the content of a blob from a branch or ref."""
         try:
-            ls_tree_output = self.git.ls_tree_subcmd.ls_tree(branch, path=[path]).strip()
+            ls_tree_output = self.git.ls_tree_subcmd.ls_tree(
+                branch, path=[path]
+            ).strip()
             if not ls_tree_output:
                 return None
 
