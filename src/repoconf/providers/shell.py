@@ -1,11 +1,10 @@
-"""
-ShellGitProvider implementation using gitbolt.
-"""
+"""ShellGitProvider implementation using gitbolt."""
 
 from pathlib import Path
-from typing import Any, Dict, Optional, List, cast
 
 import gitbolt
+from gitbolt.subprocess.base import GitCommand
+from gitbolt.subprocess.exceptions import GitCmdException as GitboltCmdException
 
 from .protocol import GitCmdException
 
@@ -17,7 +16,7 @@ class ShellGitProvider:
 
     def __init__(self, git_root_dir: Path | None = None) -> None:
         self.git_root_dir = Path(git_root_dir or Path.cwd()).resolve()
-        self.git = gitbolt.get_git(self.git_root_dir)
+        self.git: GitCommand = gitbolt.get_git_command(self.git_root_dir)
         self.git_dir = self._resolve_git_dir()
 
     def _resolve_git_dir(self) -> Path:
@@ -28,9 +27,9 @@ class ShellGitProvider:
 
     def run_unchecked(
         self,
-        args: List[str],
-        env: Optional[Dict[str, str]] = None,
-        input: Optional[str] = None,
+        args: list[str],
+        env: dict[str, str] | None = None,
+        input: str | None = None,
     ) -> str:
         """
         Executes a Git command through gitbolt's unchecked subcommand runner.
@@ -51,28 +50,23 @@ class ShellGitProvider:
         >>> "git version" in version
         True
         """
-        git_cmd = self.git
-
         try:
-            result = cast(Any, git_cmd).subcmd_unchecked.run(
+            result = self.git.subcmd_unchecked.run(
                 args,
                 _input=input,
                 text=True,
                 capture_output=True,
-                check=False,
+                check=True,
                 env=env,
             )
-        except Exception as e:
-            raise GitCmdException(f"Failed to execute git command: {e}")
-
-        if result.returncode != 0:
-            raise GitCmdException(
-                f"Git command failed with exit code {result.returncode}: {result.stderr.strip()}"
-            )
+        except GitboltCmdException as exc:
+            raise GitCmdException(str(exc)) from exc
+        except Exception as exc:
+            raise GitCmdException(f"Failed to execute git command: {exc}") from exc
 
         return result.stdout
 
-    def read_blob(self, branch: str, path: str) -> Optional[str]:
+    def read_blob(self, branch: str, path: str) -> str | None:
         """
         Reads the content of a blob at a specific path on a branch.
 
@@ -87,20 +81,15 @@ class ShellGitProvider:
             GitCmdException: If an unexpected error occurs during reading.
         """
         try:
-            # First check if the path exists in the branch using ls-tree
-            ls_tree_output = self.run_unchecked(["ls-tree", branch, path])
-            if not ls_tree_output.strip():
+            ls_tree_output = self.git.ls_tree_subcmd.ls_tree(branch, path=[path]).strip()
+            if not ls_tree_output:
                 return None
 
-            # Read the content using cat-file
-            content = self.run_unchecked(["cat-file", "blob", f"{branch}:{path}"])
-            return content
-        except GitCmdException as e:
-            # If the branch doesn't exist or isn't a valid object name, return None.
-            # E.g. fatal: Not a valid object name __repoconf/default/main
-            if "Not a valid object name" in str(e) or "bad revision" in str(e):
+            return self.run_unchecked(["cat-file", "blob", f"{branch}:{path}"])
+        except GitboltCmdException as exc:
+            if "Not a valid object name" in str(exc) or "bad revision" in str(exc):
                 return None
-            raise
+            raise GitCmdException(str(exc)) from exc
 
     def update_ref(self, ref: str, new_sha: str) -> None:
         """

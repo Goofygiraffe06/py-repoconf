@@ -3,11 +3,7 @@
 from pathlib import Path
 from typing import Protocol
 
-
-class GitCmdException(Exception):
-    """Exception raised when a Git command fails."""
-
-    pass
+from repoconf.exceptions import GitCmdException
 
 
 class GitProvider(Protocol):

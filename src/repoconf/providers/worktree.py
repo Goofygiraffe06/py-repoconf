@@ -1,23 +1,15 @@
 """Worktree-based Git provider implementation."""
 
-from __future__ import annotations
-
 import shutil
-from importlib import import_module
 from pathlib import Path
-from typing import Any, cast
+
+import gitbolt
+from gitbolt.subprocess.base import GitCommand
+from gitbolt.subprocess.exceptions import GitCmdException as GitboltCmdException
 
 from repoconf.constants import BACKEND_DIR_NAME, CONFIG_BRANCH, MANAGED_FILE_NAME
+from repoconf.constants import REPOCONF_LOCAL_EMAIL, REPOCONF_NAME
 from repoconf.providers.protocol import GitCmdException
-
-
-def _get_git(git_root_dir: Path) -> Any:
-    """Load gitbolt lazily so static analysis doesn't require it in every env."""
-    try:
-        gitbolt = import_module("gitbolt")
-    except ModuleNotFoundError as exc:
-        raise GitCmdException("gitbolt is required to use WorktreeGitProvider") from exc
-    return cast(Any, gitbolt).get_git(git_root_dir)
 
 
 class WorktreeGitProvider:
@@ -35,7 +27,7 @@ class WorktreeGitProvider:
         self.backend_dir_name = backend_dir_name
         self.managed_file_name = managed_file_name
         self.git_root_dir = Path(git_root_dir or Path.cwd()).resolve()
-        self.git: Any = _get_git(self.git_root_dir)
+        self.git: GitCommand = gitbolt.get_git_command(self.git_root_dir)
         self.git_dir = self._resolve_git_dir()
 
     def _resolve_git_dir(self) -> Path:
@@ -76,25 +68,20 @@ class WorktreeGitProvider:
         Raises:
             GitCmdException: If git exits with non-zero status.
         """
-        git_cmd = self.git
-
         try:
-            completed = git_cmd.subcmd_unchecked.run(
+            completed = self.git.subcmd_unchecked.run(
                 args,
                 _input=input,
                 text=True,
                 capture_output=True,
-                check=False,
+                check=True,
                 env=env,
             )
+        except GitboltCmdException as exc:
+            raise GitCmdException(str(exc)) from exc
         except Exception as exc:
             raise GitCmdException(f"Failed to execute git command: {exc}") from exc
 
-        if completed.returncode != 0:
-            stderr = completed.stderr.strip()
-            raise GitCmdException(
-                f"Git command failed with exit code {completed.returncode}: {stderr}"
-            )
         return completed.stdout
 
     def ensure_worktree(self, branch: str, path: Path) -> None:
@@ -135,15 +122,15 @@ class WorktreeGitProvider:
     def read_blob(self, branch: str, path: str) -> str | None:
         """Read the content of a blob from a branch or ref."""
         try:
-            ls_tree_output = self.run_unchecked(["ls-tree", branch, path])
-            if not ls_tree_output.strip():
+            ls_tree_output = self.git.ls_tree_subcmd.ls_tree(branch, path=[path]).strip()
+            if not ls_tree_output:
                 return None
 
             return self.run_unchecked(["cat-file", "blob", f"{branch}:{path}"])
-        except GitCmdException as exc:
+        except GitboltCmdException as exc:
             if "Not a valid object name" in str(exc) or "bad revision" in str(exc):
                 return None
-            raise
+            raise GitCmdException(str(exc)) from exc
 
     def update_ref(self, ref: str, new_sha: str) -> None:
         """Atomically update a Git ref."""
@@ -179,10 +166,10 @@ class WorktreeGitProvider:
             return
 
         env = {
-            "GIT_AUTHOR_NAME": "repoconf",
-            "GIT_AUTHOR_EMAIL": "repoconf@local",
-            "GIT_COMMITTER_NAME": "repoconf",
-            "GIT_COMMITTER_EMAIL": "repoconf@local",
+            "GIT_AUTHOR_NAME": REPOCONF_NAME,
+            "GIT_AUTHOR_EMAIL": REPOCONF_LOCAL_EMAIL,
+            "GIT_COMMITTER_NAME": REPOCONF_NAME,
+            "GIT_COMMITTER_EMAIL": REPOCONF_LOCAL_EMAIL,
         }
         self.run_unchecked(
             ["-C", str(self.backend_path), "commit", "-m", message], env=env

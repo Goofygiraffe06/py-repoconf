@@ -1,6 +1,7 @@
 """Shared package constants."""
 
 REPOCONF_NAME = "repoconf"
+REPOCONF_LOCAL_EMAIL = f"{REPOCONF_NAME}@local"
 MANAGED_FILE_NAME = f"{REPOCONF_NAME}.config"
 INCLUDE_PATH = f"../{MANAGED_FILE_NAME}"
 CONFIG_BRANCH = "__repoconf/default/main"

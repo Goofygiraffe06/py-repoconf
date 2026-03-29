@@ -41,6 +41,7 @@ class ConfigEngine:
         provider: GitProvider | None = None,
         git_root_dir: Path | None = None,
     ):
+        self.provider: GitProvider
         if provider is None:
             self.provider = WorktreeGitProvider(git_root_dir=git_root_dir)
             return

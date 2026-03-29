@@ -13,10 +13,16 @@ from repoconf.core.engine import ConfigEngine
 from repoconf.providers.protocol import GitCmdException
 
 
+class GitConfigParser(configparser.ConfigParser):
+    """ConfigParser variant that preserves Git option casing."""
+
+    def optionxform(self, optionstr: str) -> str:
+        return optionstr
+
+
 def write_git_config_value(path: Path, key: str, value: str) -> None:
     """Write a Git-style ``section.key`` value to a config file."""
-    parser = configparser.ConfigParser()
-    parser.optionxform = lambda optionstr: optionstr
+    parser = GitConfigParser()
     if path.exists():
         parser.read(path, encoding="utf-8")
 
@@ -32,8 +38,7 @@ def write_git_config_value(path: Path, key: str, value: str) -> None:
 
 def read_git_config_value(path: Path, key: str) -> str:
     """Read a Git-style ``section.key`` value from a config file."""
-    parser = configparser.ConfigParser()
-    parser.optionxform = lambda optionstr: optionstr
+    parser = GitConfigParser()
     parser.read(path, encoding="utf-8")
 
     section, option = key.split(".", 1)
