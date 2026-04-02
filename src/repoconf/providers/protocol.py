@@ -18,12 +18,6 @@ class GitPathProvider(Protocol):
         """Absolute path to the repository root."""
         ...
 
-    @property
-    @abstractmethod
-    def git_dir(self) -> Path:
-        """Absolute path to the repository git directory."""
-        ...
-
 
 class GitUncheckedRunner(Protocol):
     """Protocol for direct git command execution."""

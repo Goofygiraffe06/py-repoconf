@@ -1,5 +1,6 @@
 """Worktree-based Git provider implementation."""
 
+import os
 import shutil
 from pathlib import Path
 
@@ -108,7 +109,14 @@ class WorktreeGitProvider(GitProvider):
             if worktree_path.exists():
                 shutil.rmtree(worktree_path)
             self.run_unchecked(
-                ["worktree", "add", "--force", "--detach", str(worktree_path)]
+                [
+                    "worktree",
+                    "add",
+                    "--force",
+                    "--detach",
+                    "--no-checkout",
+                    str(worktree_path),
+                ]
             )
 
         has_branch = True
@@ -177,12 +185,15 @@ class WorktreeGitProvider(GitProvider):
         if not diff:
             return
 
-        env = {
-            "GIT_AUTHOR_NAME": REPOCONF_NAME,
-            "GIT_AUTHOR_EMAIL": REPOCONF_LOCAL_EMAIL,
-            "GIT_COMMITTER_NAME": REPOCONF_NAME,
-            "GIT_COMMITTER_EMAIL": REPOCONF_LOCAL_EMAIL,
-        }
+        env = dict(os.environ)
+        env.update(
+            {
+                "GIT_AUTHOR_NAME": REPOCONF_NAME,
+                "GIT_AUTHOR_EMAIL": REPOCONF_LOCAL_EMAIL,
+                "GIT_COMMITTER_NAME": REPOCONF_NAME,
+                "GIT_COMMITTER_EMAIL": REPOCONF_LOCAL_EMAIL,
+            }
+        )
         self.run_unchecked(
             ["-C", str(self.backend_path), "commit", "-m", message], env=env
         )

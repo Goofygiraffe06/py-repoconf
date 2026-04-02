@@ -4,14 +4,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from repoconf.constants import (
-    BACKEND_DIR_NAME,
     CONFIG_BRANCH,
+    CONFIG_REF,
     INCLUDE_PATH,
     MANAGED_FILE_NAME,
 )
 from repoconf.core.registry import CommandBuilder, ConfigValue, SetCommandValidator
-from repoconf.providers.protocol import GitCmdException, GitProvider
-from repoconf.providers.worktree import WorktreeGitProvider
+from repoconf.core.store import VirtualStore
+from repoconf.providers.protocol import GitCmdException, GitRefProvider
+from repoconf.providers.shell import ShellGitProvider
 
 
 @dataclass
@@ -38,9 +39,9 @@ class ConfigEngine:
     # region Lifecycle
     def __init__(
         self,
-        provider: GitProvider | None = None,
+        provider: GitRefProvider | None = None,
     ) -> None:
-        self.provider: GitProvider = provider or WorktreeGitProvider()
+        self.provider: GitRefProvider = provider or ShellGitProvider()
 
     def clone(self) -> "ConfigEngine":
         """
@@ -58,18 +59,18 @@ class ConfigEngine:
     # region Paths
     @property
     def git_dir(self) -> Path:
-        """Return the provider-bound absolute git directory path."""
-        return self.provider.git_dir
+        """Return the absolute git directory path for the bound repository."""
+        raw_git_dir = Path(
+            self.provider.run_unchecked(["rev-parse", "--git-dir"]).strip()
+        )
+        if raw_git_dir.is_absolute():
+            return raw_git_dir.resolve()
+        return (self.provider.git_root_dir / raw_git_dir).resolve()
 
     @property
     def proxy_file(self) -> Path:
         """The absolute path to the proxy file inside the git directory."""
         return self.git_dir / MANAGED_FILE_NAME
-
-    @property
-    def backend_worktree(self) -> Path:
-        """Path for the hidden administrative worktree."""
-        return self.git_dir / BACKEND_DIR_NAME
 
     # endregion
 
@@ -114,10 +115,6 @@ class ConfigEngine:
         if current_content != proxy_content:
             self.proxy_file.write_text(proxy_content, encoding="utf-8")
 
-    def _ensure_backend(self) -> None:
-        """Ensure the administrative worktree is ready."""
-        self.provider.ensure_worktree(CONFIG_BRANCH, self.backend_worktree)
-
     # endregion
 
     # region Commands
@@ -135,8 +132,7 @@ class ConfigEngine:
         return self.clone()
 
     def _prepare_proxy(self) -> None:
-        """Ensure backend, proxy content, and include wiring are ready."""
-        self._ensure_backend()
+        """Ensure proxy content and include wiring are ready."""
         self._sync_proxy_from_branch()
         self._setup_native_resolution()
 
@@ -168,8 +164,10 @@ class ConfigEngine:
 
         if commands:
             keys = ", ".join(cmd.key for cmd in commands)
-            engine.provider.commit_and_push(
-                engine.proxy_file, f"Update repoconf keys: {keys}"
+            VirtualStore(engine.provider, CONFIG_REF).commit_file(
+                str(engine.proxy_file),
+                MANAGED_FILE_NAME,
+                f"Update repoconf keys: {keys}",
             )
 
         return engine

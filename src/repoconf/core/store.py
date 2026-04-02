@@ -6,6 +6,7 @@ import os
 import tempfile
 from typing import Optional
 
+from repoconf.constants import CONFIG_REF, REPOCONF_LOCAL_EMAIL, REPOCONF_NAME
 from repoconf.providers.protocol import GitCmdException, GitRefProvider
 
 
@@ -18,7 +19,7 @@ class VirtualStore:
     def __init__(
         self,
         provider: GitRefProvider,
-        branch: str = "refs/heads/__repoconf/default/main",
+        branch: str = CONFIG_REF,
     ):
         self.provider = provider
         self.branch = branch
@@ -73,7 +74,8 @@ class VirtualStore:
         os.close(fd)
         os.remove(temp_index_path)  # Delete it so Git creates a valid index file
 
-        env = {"GIT_INDEX_FILE": temp_index_path}
+        env = dict(os.environ)
+        env["GIT_INDEX_FILE"] = temp_index_path
 
         try:
             parent_sha = self._get_parent_commit()
@@ -102,7 +104,25 @@ class VirtualStore:
             if parent_sha:
                 commit_args.extend(["-p", parent_sha])
 
-            commit_sha = self.provider.run_unchecked(commit_args).strip()
+            author_name = (
+                os.environ.get("GIT_AUTHOR_NAME")
+                or os.environ.get("GIT_COMMITTER_NAME")
+                or REPOCONF_NAME
+            )
+            author_email = (
+                os.environ.get("GIT_AUTHOR_EMAIL")
+                or os.environ.get("GIT_COMMITTER_EMAIL")
+                or REPOCONF_LOCAL_EMAIL
+            )
+            commit_env = dict(env)
+            commit_env.setdefault("GIT_AUTHOR_NAME", author_name)
+            commit_env.setdefault("GIT_AUTHOR_EMAIL", author_email)
+            commit_env.setdefault("GIT_COMMITTER_NAME", author_name)
+            commit_env.setdefault("GIT_COMMITTER_EMAIL", author_email)
+
+            commit_sha = self.provider.run_unchecked(
+                commit_args, env=commit_env
+            ).strip()
 
             # 5. update-ref
             self.provider.update_ref(self.branch, commit_sha)
