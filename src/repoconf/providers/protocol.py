@@ -1,20 +1,34 @@
 """Git provider protocol contracts."""
 
+from abc import abstractmethod
 from pathlib import Path
 from typing import Protocol
 
 from repoconf.exceptions import GitCmdException
 
-__all__ = ["GitCmdException", "GitProvider"]
+__all__ = ["GitCmdException", "GitProvider", "GitRefProvider"]
 
 
-class GitProvider(Protocol):
-    """Protocol defining the interface for Git backend providers."""
+class GitPathProvider(Protocol):
+    """Protocol for providers bound to a single repository path."""
 
-    git_root_dir: Path
-    git_dir: Path
+    @property
+    @abstractmethod
+    def git_root_dir(self) -> Path:
+        """Absolute path to the repository root."""
+        ...
 
-    # region Direct Commands
+    @property
+    @abstractmethod
+    def git_dir(self) -> Path:
+        """Absolute path to the repository git directory."""
+        ...
+
+
+class GitUncheckedRunner(Protocol):
+    """Protocol for direct git command execution."""
+
+    @abstractmethod
     def run_unchecked(
         self,
         args: list[str],
@@ -44,25 +58,11 @@ class GitProvider(Protocol):
         """
         ...
 
-    # endregion
 
-    # region Worktree Lifecycle
-    def ensure_worktree(self, branch: str, path: Path) -> None:
-        """
-        Idempotently ensures a detached administrative worktree exists.
+class GitBlobReader(Protocol):
+    """Protocol for reading blobs from refs without checking them out."""
 
-        Args:
-            branch: The configuration branch to manage.
-            path: The administrative worktree path.
-
-        Raises:
-            GitCmdException: If the worktree cannot be prepared.
-        """
-        ...
-
-    # endregion
-
-    # region Virtual Tree Access
+    @abstractmethod
     def read_blob(self, branch: str, path: str) -> str | None:
         """
         Reads a tracked blob from a branch or ref without touching the worktree.
@@ -76,6 +76,11 @@ class GitProvider(Protocol):
         """
         ...
 
+
+class GitRefUpdater(Protocol):
+    """Protocol for atomic Git ref updates."""
+
+    @abstractmethod
     def update_ref(self, ref: str, new_sha: str) -> None:
         """
         Atomically updates a Git ref to a new commit SHA.
@@ -86,9 +91,29 @@ class GitProvider(Protocol):
         """
         ...
 
-    # endregion
 
-    # region Persistence
+class GitWorktreeEnsurer(Protocol):
+    """Protocol for administrative worktree lifecycle operations."""
+
+    @abstractmethod
+    def ensure_worktree(self, branch: str, path: Path) -> None:
+        """
+        Idempotently ensures a detached administrative worktree exists.
+
+        Args:
+            branch: The configuration branch to manage.
+            path: The administrative worktree path.
+
+        Raises:
+            GitCmdException: If the worktree cannot be prepared.
+        """
+        ...
+
+
+class GitConfigPersister(Protocol):
+    """Protocol for persisting managed configuration changes."""
+
+    @abstractmethod
     def commit_and_push(self, path: Path, message: str) -> None:
         """
         Stages and commits the managed configuration in provider scope.
@@ -108,4 +133,21 @@ class GitProvider(Protocol):
         """
         ...
 
-    # endregion
+
+class GitRefProvider(
+    GitPathProvider,
+    GitUncheckedRunner,
+    GitBlobReader,
+    GitRefUpdater,
+    Protocol,
+):
+    """Protocol for ref-aware Git providers."""
+
+
+class GitProvider(
+    GitRefProvider,
+    GitWorktreeEnsurer,
+    GitConfigPersister,
+    Protocol,
+):
+    """Protocol defining the full interface for Git backend providers."""

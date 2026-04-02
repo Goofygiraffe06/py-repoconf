@@ -5,7 +5,8 @@ Virtual store logic for direct Object Database (ODB) manipulation.
 import os
 import tempfile
 from typing import Optional
-from repoconf.providers.protocol import GitProvider, GitCmdException
+
+from repoconf.providers.protocol import GitCmdException, GitRefProvider
 
 
 class VirtualStore:
@@ -15,7 +16,9 @@ class VirtualStore:
     """
 
     def __init__(
-        self, provider: GitProvider, branch: str = "refs/heads/__repoconf/default/main"
+        self,
+        provider: GitRefProvider,
+        branch: str = "refs/heads/__repoconf/default/main",
     ):
         self.provider = provider
         self.branch = branch

@@ -6,18 +6,28 @@ import gitbolt
 from gitbolt.subprocess.base import GitCommand
 from gitbolt.subprocess.exceptions import GitCmdException as GitboltCmdException
 
-from .protocol import GitCmdException
+from repoconf.providers.protocol import GitCmdException, GitRefProvider
 
 
-class ShellGitProvider:
+class ShellGitProvider(GitRefProvider):
     """
-    GitProvider implementation that executes Git commands via gitbolt.
+    Ref-aware Git provider implementation that executes Git commands via gitbolt.
     """
 
     def __init__(self, git_root_dir: Path | None = None) -> None:
-        self.git_root_dir = Path(git_root_dir or Path.cwd()).resolve()
+        self._git_root_dir = Path(git_root_dir or Path.cwd()).resolve()
         self.git: GitCommand = gitbolt.get_git_command(self.git_root_dir)
-        self.git_dir = self._resolve_git_dir()
+        self._git_dir = self._resolve_git_dir()
+
+    @property
+    def git_root_dir(self) -> Path:
+        """Absolute path to the repository root."""
+        return self._git_root_dir
+
+    @property
+    def git_dir(self) -> Path:
+        """Absolute path to the repository git directory."""
+        return self._git_dir
 
     def _resolve_git_dir(self) -> Path:
         raw_git_dir = Path(self.run_unchecked(["rev-parse", "--git-dir"]).strip())
