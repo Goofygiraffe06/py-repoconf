@@ -39,17 +39,8 @@ class ConfigEngine:
     def __init__(
         self,
         provider: GitProvider | None = None,
-        git_root_dir: Path | None = None,
     ) -> None:
-        self.provider: GitProvider = provider or WorktreeGitProvider(
-            git_root_dir=git_root_dir
-        )
-
-        if (
-            git_root_dir is not None
-            and self.provider.git_root_dir != Path(git_root_dir).resolve()
-        ):
-            raise ValueError("ConfigEngine git_root_dir must match the provider root")
+        self.provider: GitProvider = provider or WorktreeGitProvider()
 
     def clone(self) -> "ConfigEngine":
         """
