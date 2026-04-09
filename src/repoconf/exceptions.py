@@ -2,6 +2,7 @@
 
 from subprocess import CalledProcessError
 
+from repoconf.constants import REPOCONF_NAME
 from vt.utils.errors.error_specs.exceptions import VTCmdException, VTException
 
 __all__ = ["GitCmdException", "RepoconfCmdException", "RepoconfException"]
@@ -14,7 +15,7 @@ class RepoconfException(VTException):
 class RepoconfCmdException(VTCmdException, RepoconfException):
     """Base command error for repoconf command execution failures."""
 
-    default_command: str | list[str] = "repoconf"
+    default_command: str | list[str] = REPOCONF_NAME
 
     def __init__(
         self,

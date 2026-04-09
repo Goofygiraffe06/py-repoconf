@@ -8,7 +8,7 @@ from typing import Generator
 
 import pytest
 
-from repoconf.constants import CONFIG_REF, INCLUDE_PATH
+from repoconf.constants import BACKEND_DIR_NAME, CONFIG_BRANCH, CONFIG_REF, INCLUDE_PATH
 from repoconf.core.engine import ConfigEngine
 from repoconf.providers.protocol import GitCmdException
 
@@ -51,7 +51,7 @@ class FakeGitProvider:
     def __init__(
         self,
         repo_root: Path,
-        branch: str = "__repoconf/default/main",
+        branch: str = CONFIG_BRANCH,
         managed_file_name: str = "repoconf.config",
     ) -> None:
         self.git_root_dir = repo_root
@@ -71,7 +71,7 @@ class FakeGitProvider:
 
     @property
     def backend_path(self) -> Path:
-        return self.git_dir / "repoconf_backend"
+        return self.git_dir / BACKEND_DIR_NAME
 
     def seed_branch_value(self, key: str, value: str) -> None:
         """Seed a value directly in the managed branch snapshot."""

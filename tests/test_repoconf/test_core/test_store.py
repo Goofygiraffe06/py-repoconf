@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from repoconf.constants import REPOCONF_LOCAL_EMAIL, REPOCONF_NAME
+from repoconf.constants import CONFIG_REF, REPOCONF_LOCAL_EMAIL, REPOCONF_NAME
 from repoconf.core.store import VirtualStore
 from repoconf.providers.protocol import GitCmdException
 
@@ -28,7 +28,7 @@ class FakeStoreProvider:
             "rev-parse",
             "-q",
             "--verify",
-            "refs/heads/__repoconf/default/main",
+            CONFIG_REF,
         ]:
             raise GitCmdException("missing branch")
         if args[:2] == ["hash-object", "-w"]:
