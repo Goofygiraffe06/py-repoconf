@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from gitbolt.subprocess.exceptions import GitCmdException as GitboltGitCmdException
+
 from repoconf.constants import CONFIG_REF, REPOCONF_LOCAL_EMAIL, REPOCONF_NAME
 from repoconf.core.store import VirtualStore
 from repoconf.providers.protocol import GitCmdException
@@ -66,3 +68,9 @@ def test_virtual_store_commit_file_sets_deterministic_identity(tmp_path: Path) -
     assert provider.commit_env["GIT_AUTHOR_EMAIL"] == REPOCONF_LOCAL_EMAIL
     assert provider.commit_env["GIT_COMMITTER_NAME"] == REPOCONF_NAME
     assert provider.commit_env["GIT_COMMITTER_EMAIL"] == REPOCONF_LOCAL_EMAIL
+
+
+def test_git_cmd_exception_extends_gitbolt_exception() -> None:
+    error = GitCmdException("git failed")
+
+    assert isinstance(error, GitboltGitCmdException)

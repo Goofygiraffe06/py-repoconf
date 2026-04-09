@@ -2,6 +2,7 @@
 
 from subprocess import CalledProcessError
 
+from gitbolt.subprocess.exceptions import GitCmdException as GitboltGitCmdException
 from repoconf.constants import REPOCONF_NAME
 from vt.utils.errors.error_specs.exceptions import VTCmdException, VTException
 
@@ -38,7 +39,7 @@ class RepoconfCmdException(VTCmdException, RepoconfException):
         )
 
 
-class GitCmdException(RepoconfCmdException):
+class GitCmdException(GitboltGitCmdException, RepoconfCmdException):
     """Exception raised when a Git command fails."""
 
     default_command = "git"
