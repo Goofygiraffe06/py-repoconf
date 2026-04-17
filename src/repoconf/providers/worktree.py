@@ -3,6 +3,7 @@
 import os
 import shutil
 from pathlib import Path
+from typing import Protocol, cast
 
 import gitbolt
 from gitbolt.subprocess.base import GitCommand
@@ -11,6 +12,12 @@ from gitbolt.subprocess.exceptions import GitCmdException as GitboltCmdException
 from repoconf.constants import BACKEND_DIR_NAME, CONFIG_BRANCH, MANAGED_FILE_NAME
 from repoconf.constants import REPOCONF_LOCAL_EMAIL, REPOCONF_NAME
 from repoconf.providers.protocol import GitCmdException, GitProvider
+
+
+class GitCommandWithRootDir(Protocol):
+    """Protocol for injected git commands bound to a repository root."""
+
+    git_root_dir: Path
 
 
 class WorktreeGitProvider(GitProvider):
@@ -28,7 +35,9 @@ class WorktreeGitProvider(GitProvider):
         self.branch = branch
         self.backend_dir_name = backend_dir_name
         self.managed_file_name = managed_file_name
-        self._git_root_dir = self._resolve_git_root_dir(git_root_dir=git_root_dir, git=git)
+        self._git_root_dir = self._resolve_git_root_dir(
+            git_root_dir=git_root_dir, git=git
+        )
         self.git: GitCommand = git or gitbolt.get_git_command(self.git_root_dir)
         self._git_dir = self._resolve_git_dir()
 
@@ -40,7 +49,7 @@ class WorktreeGitProvider(GitProvider):
         if git is None:
             return Path(git_root_dir or Path.cwd()).resolve()
 
-        resolved_git_root_dir = Path(git.git_root_dir).resolve()
+        resolved_git_root_dir = cast(GitCommandWithRootDir, git).git_root_dir.resolve()
         if (
             git_root_dir is not None
             and resolved_git_root_dir != Path(git_root_dir).resolve()

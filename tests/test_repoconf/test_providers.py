@@ -56,9 +56,7 @@ def test_worktree_provider_uses_client_git_command(tmp_path: Path) -> None:
     assert provider.git is fake_git
     assert provider.git_root_dir == tmp_path.resolve()
     assert provider.git_dir == (tmp_path / ".git").resolve()
-    assert fake_git.subcmd_unchecked.calls == [
-        (["rev-parse", "--git-dir"], None, None)
-    ]
+    assert fake_git.subcmd_unchecked.calls == [(["rev-parse", "--git-dir"], None, None)]
 
 
 def test_worktree_provider_rejects_mismatched_client_git_root(tmp_path: Path) -> None:
