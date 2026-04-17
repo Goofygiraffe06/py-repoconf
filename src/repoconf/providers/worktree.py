@@ -23,13 +23,32 @@ class WorktreeGitProvider(GitProvider):
         backend_dir_name: str = BACKEND_DIR_NAME,
         managed_file_name: str = MANAGED_FILE_NAME,
         git_root_dir: Path | None = None,
+        git: GitCommand | None = None,
     ) -> None:
         self.branch = branch
         self.backend_dir_name = backend_dir_name
         self.managed_file_name = managed_file_name
-        self._git_root_dir = Path(git_root_dir or Path.cwd()).resolve()
-        self.git: GitCommand = gitbolt.get_git_command(self.git_root_dir)
+        self._git_root_dir = self._resolve_git_root_dir(git_root_dir=git_root_dir, git=git)
+        self.git: GitCommand = git or gitbolt.get_git_command(self.git_root_dir)
         self._git_dir = self._resolve_git_dir()
+
+    @staticmethod
+    def _resolve_git_root_dir(
+        git_root_dir: Path | None, git: GitCommand | None
+    ) -> Path:
+        """Resolve the repository root bound to this provider instance."""
+        if git is None:
+            return Path(git_root_dir or Path.cwd()).resolve()
+
+        resolved_git_root_dir = Path(git.git_root_dir).resolve()
+        if (
+            git_root_dir is not None
+            and resolved_git_root_dir != Path(git_root_dir).resolve()
+        ):
+            raise ValueError(
+                "WorktreeGitProvider git_root_dir must match the provided git command root"
+            )
+        return resolved_git_root_dir
 
     @property
     def git_root_dir(self) -> Path:
